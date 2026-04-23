@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FolioTranscribe — Handwritten Text Recognition for Historical Documents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --ink: #1a1410;
+    --parchment: #f5f0e8;
+    --parchment-dark: #ede7d6;
+    --parchment-mid: #f0ead8;
+    --sepia: #8b6914;
+    --sepia-light: #c4992a;
+    --sepia-pale: #f7f1e3;
+    --rust: #7a3b1e;
+    --sage: #4a6741;
+    --deep-blue: #1e3a5f;
+    --deep-blue-light: #2a5180;
+    --border: #c8b99a;
+    --border-light: #ddd3be;
+    --text-muted: #6b5c47;
+    --shadow: rgba(26,20,16,0.12);
+    --shadow-strong: rgba(26,20,16,0.22);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'EB Garamond', Georgia, serif;
+    background: var(--parchment);
+    color: var(--ink);
+    min-height: 100vh;
+    background-image: 
+      radial-gradient(ellipse at 20% 0%, rgba(139,105,20,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 100%, rgba(122,59,30,0.05) 0%, transparent 60%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--deep-blue);
+    color: #e8dfc8;
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 3px solid var(--sepia);
+  }
+
+  header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(232,223,200,0.04) 39px, rgba(232,223,200,0.04) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(232,223,200,0.04) 39px, rgba(232,223,200,0.04) 40px);
+    pointer-events: none;
+  }
+
+  .header-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 40px 36px;
+    position: relative;
+  }
+
+  .header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  .logo-block h1 {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 2.6rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: #f0e8d4;
+    line-height: 1;
+  }
+
+  .logo-block h1 span {
+    color: var(--sepia-light);
+  }
+
+  .logo-block .tagline {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 1.05rem;
+    color: #a89878;
+    margin-top: 6px;
+    letter-spacing: 0.2px;
+  }
+
+  .header-badge {
+    background: rgba(196,153,42,0.15);
+    border: 1px solid rgba(196,153,42,0.35);
+    color: var(--sepia-light);
+    font-size: 0.72rem;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.08em;
+    padding: 5px 12px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    margin-top: 6px;
+  }
+
+  /* ── NAV ── */
+  nav {
+    margin-top: 28px;
+    display: flex;
+    gap: 0;
+    border-top: 1px solid rgba(232,223,200,0.12);
+    padding-top: 18px;
+  }
+
+  nav a {
+    color: #a89878;
+    text-decoration: none;
+    font-size: 0.92rem;
+    letter-spacing: 0.04em;
+    padding: 4px 18px 4px 0;
+    transition: color 0.2s;
+    font-family: 'EB Garamond', serif;
+  }
+
+  nav a:hover, nav a.active { color: #f0e8d4; }
+  nav a + a { border-left: 1px solid rgba(232,223,200,0.15); padding-left: 18px; }
+
+  /* ── MAIN ── */
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 40px 80px;
+  }
+
+  /* ── API KEY SECTION ── */
+  .api-banner {
+    background: linear-gradient(135deg, var(--deep-blue) 0%, var(--deep-blue-light) 100%);
+    color: #e8dfc8;
+    border-radius: 4px;
+    padding: 20px 28px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 36px;
+    border: 1px solid rgba(196,153,42,0.3);
+    box-shadow: 0 2px 12px var(--shadow);
+  }
+
+  .api-banner-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+  }
+
+  .api-banner-text { flex: 1; }
+
+  .api-banner-text p {
+    font-size: 0.88rem;
+    color: #a89878;
+    margin-top: 3px;
+    font-style: italic;
+  }
+
+  .api-key-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    align-items: center;
+  }
+
+  .api-key-row input {
+    flex: 1;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(196,153,42,0.35);
+    color: #e8dfc8;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    padding: 9px 14px;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .api-key-row input:focus { border-color: var(--sepia-light); }
+  .api-key-row input::placeholder { color: rgba(168,152,120,0.5); }
+
+  .btn-save-key {
+    background: var(--sepia);
+    color: #f0e8d4;
+    border: none;
+    padding: 9px 20px;
+    font-family: 'EB Garamond', serif;
+    font-size: 0.95rem;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-save-key:hover { background: var(--sepia-light); }
+
+  .key-status {
+    font-size: 0.8rem;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 4px 10px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .key-status.set { background: rgba(74,103,65,0.3); color: #8bc87a; }
+  .key-status.unset { background: rgba(122,59,30,0.3); color: #e8957a; }
+
+  /* ── TWO-COLUMN LAYOUT ── */
+  .workspace {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+
+  @media (max-width: 780px) {
+    .workspace { grid-template-columns: 1fr; }
+    main { padding: 32px 20px 60px; }
+    .header-inner { padding: 28px 20px 24px; }
+    .logo-block h1 { font-size: 1.9rem; }
+    .api-banner { flex-direction: column; gap: 12px; }
+  }
+
+  /* ── PANELS ── */
+  .panel {
+    background: #fff9f0;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 2px 16px var(--shadow);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    background: var(--parchment-dark);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .panel-header h2 {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+  }
+
+  .panel-header .panel-num {
+    background: var(--deep-blue);
+    color: #e8dfc8;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    padding: 2px 7px;
+    border-radius: 2px;
+  }
+
+  .panel-body { padding: 20px; }
+
+  /* ── UPLOAD ZONE ── */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 4px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--sepia-pale);
+    position: relative;
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--sepia);
+    background: #f5eddb;
+  }
+
+  .upload-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .upload-icon {
+    font-size: 2.4rem;
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .upload-zone p {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .upload-zone .upload-hint {
+    font-size: 0.78rem;
+    color: #9b8c76;
+    margin-top: 6px;
+    font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .preview-img {
+    width: 100%;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    margin-top: 14px;
+    display: none;
+    max-height: 320px;
+    object-fit: contain;
+    background: #fff;
+  }
+
+  /* ── CITATION FIELDS ── */
+  .citation-section {
+    margin-top: 18px;
+  }
+
+  .citation-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: var(--deep-blue);
+    font-family: 'EB Garamond', serif;
+    user-select: none;
+    padding: 8px 0;
+    border-top: 1px solid var(--border-light);
+  }
+
+  .citation-toggle svg {
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  .citation-toggle.open svg { transform: rotate(90deg); }
+
+  .citation-fields {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 16px;
+    background: var(--parchment-mid);
+    border: 1px solid var(--border-light);
+    border-radius: 3px;
+  }
+
+  .citation-fields.visible { display: flex; }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .field-group label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .field-group input {
+    border: 1px solid var(--border);
+    background: #fff9f0;
+    color: var(--ink);
+    font-family: 'EB Garamond', serif;
+    font-size: 0.93rem;
+    padding: 7px 10px;
+    border-radius: 2px;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+
+  .field-group input:focus { border-color: var(--sepia); }
+  .field-group input::placeholder { color: #b8a990; font-style: italic; }
+
+  .field-group.full { grid-column: 1 / -1; }
+
+  .citation-preview {
+    font-size: 0.82rem;
+    color: var(--rust);
+    font-style: italic;
+    padding: 8px 10px;
+    background: rgba(122,59,30,0.05);
+    border-left: 2px solid var(--rust);
+    border-radius: 0 2px 2px 0;
+    margin-top: 4px;
+    min-height: 32px;
+    font-family: 'EB Garamond', serif;
+  }
+
+  /* ── TRANSCRIBE BUTTON ── */
+  .btn-transcribe {
+    width: 100%;
+    margin-top: 16px;
+    background: var(--deep-blue);
+    color: #f0e8d4;
+    border: none;
+    padding: 13px 20px;
+    font-family: 'Libre Baskerville', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .btn-transcribe:hover:not(:disabled) {
+    background: var(--deep-blue-light);
+    box-shadow: 0 3px 12px rgba(30,58,95,0.3);
+  }
+
+  .btn-transcribe:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .spinner {
+    display: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(240,232,212,0.3);
+    border-top-color: #f0e8d4;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── OUTPUT PANEL ── */
+  .output-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--parchment-dark);
+  }
+
+  .output-tab {
+    padding: 11px 20px;
+    font-family: 'EB Garamond', serif;
+    font-size: 0.92rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    border: none;
+    background: none;
+    margin-bottom: -1px;
+  }
+
+  .output-tab:hover { color: var(--ink); }
+
+  .output-tab.active {
+    color: var(--deep-blue);
+    border-bottom: 2px solid var(--deep-blue);
+    font-weight: 500;
+  }
+
+  .output-body { padding: 20px; }
+
+  .transcript-area {
+    width: 100%;
+    min-height: 340px;
+    border: 1px solid var(--border);
+    background: #fffdf8;
+    color: var(--ink);
+    font-family: 'EB Garamond', serif;
+    font-size: 1.05rem;
+    line-height: 1.75;
+    padding: 16px;
+    resize: vertical;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .transcript-area:focus { border-color: var(--sepia); }
+
+  .transcript-area::placeholder {
+    color: #b8a990;
+    font-style: italic;
+  }
+
+  .output-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  .btn-action {
+    padding: 9px 18px;
+    font-family: 'EB Garamond', serif;
+    font-size: 0.93rem;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .btn-copy {
+    background: var(--parchment-dark);
+    color: var(--ink);
+    border: 1px solid var(--border);
+  }
+
+  .btn-copy:hover { background: var(--border-light); }
+
+  .btn-word {
+    background: var(--sage);
+    color: #f0f5ee;
+    border: none;
+    font-weight: 500;
+  }
+
+  .btn-word:hover { background: #3a5431; box-shadow: 0 2px 8px rgba(74,103,65,0.3); }
+
+  .btn-clear {
+    background: none;
+    color: var(--text-muted);
+    border: 1px solid var(--border-light);
+    margin-left: auto;
+  }
+
+  .btn-clear:hover { color: var(--rust); border-color: var(--rust); }
+
+  /* ── STATUS BAR ── */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    min-height: 24px;
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  .status-dot.processing { background: var(--sepia-light); animation: pulse 1s infinite; }
+  .status-dot.done { background: var(--sage); }
+  .status-dot.error { background: var(--rust); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .status-text {
+    font-size: 0.8rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+  }
+
+  /* ── WORD OUTPUT PREVIEW ── */
+  .word-preview {
+    display: none;
+  }
+
+  .word-preview-box {
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 3px;
+    padding: 28px 32px;
+    font-family: 'EB Garamond', serif;
+    font-size: 1rem;
+    line-height: 1.8;
+    min-height: 200px;
+    position: relative;
+  }
+
+  .word-preview-header {
+    border-bottom: 1.5px solid var(--border);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+  }
+
+  .word-preview-header .doc-ref {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    font-style: italic;
+    line-height: 1.5;
+  }
+
+  .word-preview-header .doc-title {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--deep-blue);
+    margin-bottom: 4px;
+  }
+
+  .word-preview-content {
+    color: var(--ink);
+    white-space: pre-wrap;
+    font-size: 0.98rem;
+  }
+
+  /* ── ABOUT SECTION ── */
+  .about-strip {
+    margin-top: 52px;
+    padding: 36px 40px;
+    background: var(--parchment-dark);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 36px;
+  }
+
+  @media (max-width: 700px) { .about-strip { grid-template-columns: 1fr; } }
+
+  .about-item h3 {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--deep-blue);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .about-item p {
+    font-size: 0.92rem;
+    color: var(--text-muted);
+    line-height: 1.65;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 28px 20px;
+    border-top: 1px solid var(--border-light);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-style: italic;
+    background: var(--parchment-dark);
+  }
+
+  footer a { color: var(--sepia); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    background: var(--ink);
+    color: #f0e8d4;
+    padding: 11px 20px;
+    border-radius: 3px;
+    font-size: 0.88rem;
+    font-family: 'EB Garamond', serif;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.25s;
+    pointer-events: none;
+    z-index: 9999;
+    border-left: 3px solid var(--sepia-light);
+  }
+
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="header-top">
+      <div class="logo-block">
+        <h1>Folio<span>Transcribe</span></h1>
+        <div class="tagline">Handwritten Text Recognition for Historical Documents</div>
+      </div>
+      <div class="header-badge">Beta · AI-Powered HTR</div>
+    </div>
+    <nav>
+      <a href="#" class="active">Transcribe</a>
+      <a href="#about">About</a>
+      <a href="mailto:contact@foliotranscribe.com">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- API KEY BANNER -->
+  <div class="api-banner">
+    <div class="api-banner-icon">🔑</div>
+    <div class="api-banner-text">
+      <strong>Gemini API Key Required</strong>
+      <p>Your key is stored locally in your browser and never sent to our servers. <a href="https://aistudio.google.com" target="_blank" style="color:var(--sepia-light)">Get a free key at Google AI Studio →</a></p>
+      <div class="api-key-row">
+        <input type="password" id="apiKeyInput" placeholder="AIza..." autocomplete="off" />
+        <button class="btn-save-key" onclick="saveKey()">Save Key</button>
+        <span class="key-status unset" id="keyStatus">Not set</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="workspace">
+
+    <!-- LEFT: UPLOAD + SETTINGS -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">01</span>
+        <h2>Document Upload</h2>
+      </div>
+      <div class="panel-body">
+
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept="image/*,.pdf" onchange="handleFile(event)">
+          <span class="upload-icon">📜</span>
+          <p>Drop your document here, or click to browse</p>
+          <div class="upload-hint">JPG · PNG · TIFF · PDF</div>
+        </div>
+
+        <img id="previewImg" class="preview-img" alt="Document preview" />
+
+        <!-- CITATION / ARCHIVAL METADATA -->
+        <div class="citation-section">
+          <div class="citation-toggle" id="citationToggle" onclick="toggleCitation()">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path d="M3 1.5L7 5L3 8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <span>Archival Reference & Citation Fields</span>
+            <span style="font-size:0.78rem;color:var(--text-muted);font-style:italic;margin-left:auto;">optional</span>
+          </div>
+
+          <div class="citation-fields" id="citationFields">
+            <div class="field-row">
+              <div class="field-group">
+                <label>Archive / Repository</label>
+                <input type="text" id="f_archive" placeholder="e.g. The National Archives" oninput="updateCitationPreview()">
+              </div>
+              <div class="field-group">
+                <label>Collection / Fonds</label>
+                <input type="text" id="f_collection" placeholder="e.g. Board of Trade Records" oninput="updateCitationPreview()">
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label>Series / Class</label>
+                <input type="text" id="f_series" placeholder="e.g. BT 31" oninput="updateCitationPreview()">
+              </div>
+              <div class="field-group">
+                <label>Box / File Number</label>
+                <input type="text" id="f_box" placeholder="e.g. Box 14, File 3" oninput="updateCitationPreview()">
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label>Volume / Bundle</label>
+                <input type="text" id="f_volume" placeholder="e.g. Vol. VII" oninput="updateCitationPreview()">
+              </div>
+              <div class="field-group">
+                <label>Folio / Page</label>
+                <input type="text" id="f_folio" placeholder="e.g. fol. 23r" oninput="updateCitationPreview()">
+              </div>
+            </div>
+            <div class="field-group full">
+              <label>Document Title / Description</label>
+              <input type="text" id="f_docname" placeholder="e.g. Letter from James Jenks to Directors, 14 March 1902" oninput="updateCitationPreview()">
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label>Date of Document</label>
+                <input type="text" id="f_date" placeholder="e.g. 14 March 1902" oninput="updateCitationPreview()">
+              </div>
+              <div class="field-group">
+                <label>Reference Code</label>
+                <input type="text" id="f_refcode" placeholder="e.g. MT 10/1563" oninput="updateCitationPreview()">
+              </div>
+            </div>
+            <div class="field-group full">
+              <label>Additional Notes</label>
+              <input type="text" id="f_notes" placeholder="e.g. Transcribed from microfilm copy; original held at..." oninput="updateCitationPreview()">
+            </div>
+
+            <div class="citation-preview" id="citationPreview">
+              <em>Citation preview will appear here as you fill in the fields above.</em>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-transcribe" id="transcribeBtn" onclick="transcribe()" disabled>
+          <div class="spinner" id="spinner"></div>
+          <span id="btnLabel">Transcribe Document</span>
+        </button>
+
+        <div class="status-bar">
+          <div class="status-dot" id="statusDot"></div>
+          <div class="status-text" id="statusText">Ready — upload a document to begin</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- RIGHT: OUTPUT -->
+    <div class="panel">
+      <div class="output-tabs">
+        <button class="output-tab active" onclick="switchTab('text', this)">📝 Text Output</button>
+        <button class="output-tab" onclick="switchTab('word', this)">📄 Word Preview</button>
+      </div>
+
+      <!-- TEXT TAB -->
+      <div id="tab-text" class="output-body">
+        <textarea class="transcript-area" id="transcriptArea"
+          placeholder="Your transcription will appear here once processing is complete.&#10;&#10;You may also edit the text directly in this window before copying or exporting."></textarea>
+
+        <div class="output-actions">
+          <button class="btn-action btn-copy" onclick="copyText()">
+            📋 Copy Text
+          </button>
+          <button class="btn-action btn-word" onclick="exportWord()">
+            ⬇ Export to Word
+          </button>
+          <button class="btn-action btn-clear" onclick="clearAll()">
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- WORD PREVIEW TAB -->
+      <div id="tab-word" class="output-body word-preview">
+        <div class="word-preview-box" id="wordPreviewBox">
+          <div class="word-preview-header">
+            <div class="doc-title" id="previewTitle">Document Transcription</div>
+            <div class="doc-ref" id="previewRef"><em>No archival reference fields completed.</em></div>
+          </div>
+          <div class="word-preview-content" id="previewContent">
+            <em style="color:var(--text-muted)">Transcribed text will appear here. Switch to this tab after transcription to preview how your Word document will look, including the citation header.</em>
+          </div>
+        </div>
+
+        <div class="output-actions">
+          <button class="btn-action btn-word" onclick="exportWord()">
+            ⬇ Download Word Document
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ABOUT STRIP -->
+  <div class="about-strip" id="about">
+    <div class="about-item">
+      <h3>📜 Archival-Grade HTR</h3>
+      <p>FolioTranscribe uses state-of-the-art AI vision models to read handwritten historical documents — letters, account books, ledgers, legal papers — with sensitivity to period orthography and abbreviations.</p>
+    </div>
+    <div class="about-item">
+      <h3>🏛 Citation-Ready Output</h3>
+      <p>Every exported document carries a full archival header — archive, collection, series, box, folio, and date — automatically formatted to support academic citation and research documentation standards.</p>
+    </div>
+    <div class="about-item">
+      <h3>🔒 Privacy First</h3>
+      <p>Your API key is stored only in your browser's local storage and never transmitted to our servers. Documents are processed directly between your browser and Google's Gemini API.</p>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  FolioTranscribe · <a href="https://foliotranscribe.com">foliotranscribe.com</a> · Built for historical researchers and archivists ·
+  <a href="https://aistudio.google.com" target="_blank">Powered by Google Gemini</a>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<!-- docx library for Word export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"></script>
+
+<script>
+// ── STATE ──
+let currentFile = null;
+let currentBase64 = null;
+let currentMime = null;
+let currentTranscript = '';
+
+// ── API KEY ──
+function saveKey() {
+  const val = document.getElementById('apiKeyInput').value.trim();
+  if (!val) { showToast('Please enter a key first'); return; }
+  localStorage.setItem('ft_gemini_key', val);
+  updateKeyStatus();
+  showToast('API key saved');
+}
+
+function getKey() {
+  return localStorage.getItem('ft_gemini_key') || '';
+}
+
+function updateKeyStatus() {
+  const key = getKey();
+  const el = document.getElementById('keyStatus');
+  const input = document.getElementById('apiKeyInput');
+  if (key) {
+    el.textContent = '✓ Set';
+    el.className = 'key-status set';
+    input.placeholder = key.slice(0, 8) + '••••••••••••';
+  } else {
+    el.textContent = 'Not set';
+    el.className = 'key-status unset';
+  }
+  checkReady();
+}
+
+// ── FILE HANDLING ──
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  processFile(file);
+}
+
+function processFile(file) {
+  currentFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    currentBase64 = dataUrl.split(',')[1];
+    currentMime = file.type || 'image/jpeg';
+
+    const preview = document.getElementById('previewImg');
+    preview.src = dataUrl;
+    preview.style.display = 'block';
+
+    setStatus('ready', `Loaded: ${file.name}`);
+    checkReady();
+  };
+  reader.readAsDataURL(file);
+}
+
+// Drag and drop
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+});
+
+function checkReady() {
+  const ready = currentBase64 && getKey();
+  document.getElementById('transcribeBtn').disabled = !ready;
+}
+
+// ── STATUS ──
+function setStatus(state, text) {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  dot.className = 'status-dot ' + (state === 'ready' ? '' : state);
+  txt.textContent = text;
+}
+
+// ── CITATION FIELDS ──
+function toggleCitation() {
+  const toggle = document.getElementById('citationToggle');
+  const fields = document.getElementById('citationFields');
+  toggle.classList.toggle('open');
+  fields.classList.toggle('visible');
+}
+
+function getCitationData() {
+  return {
+    archive:    document.getElementById('f_archive').value.trim(),
+    collection: document.getElementById('f_collection').value.trim(),
+    series:     document.getElementById('f_series').value.trim(),
+    box:        document.getElementById('f_box').value.trim(),
+    volume:     document.getElementById('f_volume').value.trim(),
+    folio:      document.getElementById('f_folio').value.trim(),
+    docname:    document.getElementById('f_docname').value.trim(),
+    date:       document.getElementById('f_date').value.trim(),
+    refcode:    document.getElementById('f_refcode').value.trim(),
+    notes:      document.getElementById('f_notes').value.trim(),
+  };
+}
+
+function buildCitationString(c) {
+  const parts = [];
+  if (c.archive)    parts.push(c.archive);
+  if (c.collection) parts.push(c.collection);
+  if (c.series)     parts.push(c.series);
+  if (c.box)        parts.push(c.box);
+  if (c.volume)     parts.push(c.volume);
+  if (c.folio)      parts.push(c.folio);
+  if (c.refcode)    parts.push(c.refcode);
+  let str = parts.join(', ');
+  if (c.docname) str = (str ? str + '. ' : '') + c.docname;
+  if (c.date)    str += (str ? ' [' + c.date + ']' : c.date);
+  if (c.notes)   str += '. ' + c.notes;
+  return str || null;
+}
+
+function updateCitationPreview() {
+  const c = getCitationData();
+  const str = buildCitationString(c);
+  const el = document.getElementById('citationPreview');
+  el.innerHTML = str
+    ? str
+    : '<em>Citation preview will appear here as you fill in the fields above.</em>';
+  updateWordPreview();
+}
+
+// ── TRANSCRIPTION ──
+async function transcribe() {
+  const key = getKey();
+  if (!key || !currentBase64) return;
+
+  const btn = document.getElementById('transcribeBtn');
+  const spinner = document.getElementById('spinner');
+  const label = document.getElementById('btnLabel');
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  label.textContent = 'Processing…';
+  setStatus('processing', 'Sending to Gemini — please wait…');
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              {
+                text: `You are an expert palaeographer and historical document transcriber. Transcribe ALL handwritten or printed text in this historical document exactly as it appears. Preserve:
+- Original spelling, capitalisation, and punctuation
+- Line breaks where meaningful
+- Abbreviations as written (do not expand)
+- Struck-through text in [strikethrough: ...] brackets
+- Illegible words as [illegible]
+- Uncertain readings as [?word]
+- Marginal annotations prefaced with {margin:}
+Output only the transcribed text with no commentary or preamble.`
+              },
+              {
+                inline_data: {
+                  mime_type: currentMime,
+                  data: currentBase64
+                }
+              }
+            ]
+          }]
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (data.error) throw new Error(data.error.message);
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    currentTranscript = text;
+    document.getElementById('transcriptArea').value = text;
+    updateWordPreview();
+    setStatus('done', `Transcription complete — ${text.split(/\s+/).length} words`);
+    showToast('Transcription complete');
+
+  } catch (err) {
+    setStatus('error', 'Error: ' + err.message);
+    showToast('Error: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+    label.textContent = 'Transcribe Document';
+    checkReady();
+  }
+}
+
+// ── TABS ──
+function switchTab(tab, el) {
+  document.querySelectorAll('.output-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-text').style.display = tab === 'text' ? 'block' : 'none';
+  const wordTab = document.getElementById('tab-word');
+  wordTab.style.display = tab === 'word' ? 'block' : 'none';
+  wordTab.classList.toggle('word-preview', tab === 'word');
+  if (tab === 'word') updateWordPreview();
+}
+
+// ── WORD PREVIEW ──
+function updateWordPreview() {
+  const c = getCitationData();
+  const citStr = buildCitationString(c);
+  const text = document.getElementById('transcriptArea').value || currentTranscript;
+
+  document.getElementById('previewTitle').textContent =
+    c.docname || 'Document Transcription';
+
+  document.getElementById('previewRef').innerHTML =
+    citStr ? citStr : '<em>No archival reference fields completed.</em>';
+
+  document.getElementById('previewContent').textContent =
+    text || 'No transcription yet.';
+}
+
+// ── COPY ──
+function copyText() {
+  const text = document.getElementById('transcriptArea').value;
+  if (!text) { showToast('Nothing to copy'); return; }
+  navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard'));
+}
+
+// ── EXPORT TO WORD ──
+async function exportWord() {
+  const text = document.getElementById('transcriptArea').value || currentTranscript;
+  if (!text) { showToast('No transcription to export'); return; }
+
+  const c = getCitationData();
+  const citStr = buildCitationString(c);
+  const {
+    Document, Packer, Paragraph, TextRun, Header, Footer,
+    AlignmentType, HeadingLevel, BorderStyle, PageNumber,
+    Tab, TabStopType, TabStopPosition
+  } = docx;
+
+  // Build header lines
+  const headerLines = [];
+  if (c.archive)    headerLines.push(`Archive: ${c.archive}`);
+  if (c.collection) headerLines.push(`Collection: ${c.collection}`);
+  if (c.series)     headerLines.push(`Series: ${c.series}`);
+  if (c.box)        headerLines.push(`Box/File: ${c.box}`);
+  if (c.volume)     headerLines.push(`Volume: ${c.volume}`);
+  if (c.folio)      headerLines.push(`Folio: ${c.folio}`);
+  if (c.refcode)    headerLines.push(`Reference: ${c.refcode}`);
+  if (c.date)       headerLines.push(`Date: ${c.date}`);
+  if (c.notes)      headerLines.push(`Notes: ${c.notes}`);
+
+  const docTitle = c.docname || 'Document Transcription';
+  const transcribedOn = new Date().toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'long', year: 'numeric'
+  });
+
+  // Split transcript into paragraphs
+  const bodyParas = text.split(/\n\n+/).map(block =>
+    new Paragraph({
+      children: [new TextRun({ text: block.replace(/\n/g, ' '), font: 'Garamond', size: 24 })],
+      spacing: { after: 200, line: 360 },
+    })
+  );
+
+  // Build header paragraphs
+  const headerParas = [
+    new Paragraph({
+      children: [new TextRun({
+        text: 'FolioTranscribe · Archival Transcription',
+        font: 'Arial', size: 16, color: '666666', italics: true
+      })],
+      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '1e3a5f', space: 1 } },
+      spacing: { after: 80 }
+    }),
+  ];
+
+  if (headerLines.length > 0) {
+    headerLines.forEach(line => {
+      headerParas.push(new Paragraph({
+        children: [new TextRun({ text: line, font: 'Arial', size: 16, color: '444444' })],
+        spacing: { after: 20 }
+      }));
+    });
+  }
+
+  const doc = new Document({
+    sections: [{
+      properties: {
+        page: {
+          size: { width: 11906, height: 16838 }, // A4
+          margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
+        }
+      },
+      headers: {
+        default: new Header({ children: headerParas })
+      },
+      footers: {
+        default: new Footer({
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({ text: docTitle, font: 'Arial', size: 16, color: '666666', italics: true }),
+                new TextRun({ text: '   ·   Transcribed: ' + transcribedOn, font: 'Arial', size: 16, color: '888888' }),
+                new TextRun({ text: '   ·   Page ', font: 'Arial', size: 16, color: '888888' }),
+                new PageNumber(),
+              ],
+              alignment: AlignmentType.CENTER
+            })
+          ]
+        })
+      },
+      children: [
+        // Title block
+        new Paragraph({
+          children: [new TextRun({
+            text: docTitle,
+            font: 'Garamond', size: 32, bold: true, color: '1e3a5f'
+          })],
+          spacing: { after: 160 }
+        }),
+        ...(citStr ? [new Paragraph({
+          children: [new TextRun({
+            text: citStr,
+            font: 'Arial', size: 18, color: '555555', italics: true
+          })],
+          border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'c4992a', space: 1 } },
+          spacing: { after: 320 }
+        })] : []),
+        // Body
+        ...bodyParas,
+        // Trailing note
+        new Paragraph({
+          children: [new TextRun({
+            text: `Transcribed using FolioTranscribe (foliotranscribe.com) on ${transcribedOn}`,
+            font: 'Arial', size: 16, color: '999999', italics: true
+          })],
+          spacing: { before: 480 },
+          border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'dddddd', space: 1 } }
+        })
+      ]
+    }]
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const filename = (c.refcode || c.docname || 'transcription')
+    .replace(/[^a-z0-9\-_]/gi, '_').slice(0, 50) + '.docx';
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Word document downloaded');
+}
+
+// ── CLEAR ──
+function clearAll() {
+  document.getElementById('transcriptArea').value = '';
+  currentTranscript = '';
+  document.getElementById('previewContent').textContent = 'No transcription yet.';
+  setStatus('', 'Ready — upload a document to begin');
+}
+
+// ── TOAST ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── INIT ──
+updateKeyStatus();
+// Initialise tab display
+document.getElementById('tab-word').style.display = 'none';
+</script>
+</body>
+</html>
