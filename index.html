@@ -717,27 +717,19 @@
 
 <main>
 
-  <!-- API KEY BANNER -->
-  <div class="api-banner">
-    <div class="api-banner-icon">🔑</div>
+  <!-- FREE TIER BANNER -->
+  <div class="api-banner" id="freeBanner">
+    <div class="api-banner-icon">📜</div>
     <div class="api-banner-text">
-      <strong>OpenRouter API Key Required</strong>
-      <p>Your key is stored locally in your browser and never sent to our servers. <a href="https://openrouter.ai/keys" target="_blank" style="color:var(--sepia-light)">Get a free key at OpenRouter.ai →</a></p>
-      <div class="api-key-row">
-        <input type="password" id="apiKeyInput" placeholder="sk-or-..." autocomplete="off" />
-        <button class="btn-save-key" onclick="saveKey()">Save Key</button>
-        <span class="key-status unset" id="keyStatus">Not set</span>
-      </div>
+      <strong>Try FolioTranscribe Free</strong>
+      <p>Transcribe your first <strong style="color:var(--sepia-light)">10 folios free</strong> — no account or credit card needed. After that, then just <strong style="color:var(--sepia-light)">30p per folio</strong> — saving hours of expert transcription work. Word export and analytical notes included.</p>
       <div class="api-key-row" style="margin-top:8px;">
-        <select id="modelSelect" style="flex:1;background:rgba(0,0,0,0.25);border:1px solid rgba(196,153,42,0.35);color:#e8dfc8;font-family:'JetBrains Mono',monospace;font-size:0.78rem;padding:9px 10px;border-radius:3px;">
-          <option value="google/gemma-4-31b-it:free">Gemma 4 31B · Vision (free)</option>
-          <option value="google/gemma-4-26b-a4b-it:free">Gemma 4 26B · Vision (free)</option>
-          <option value="nvidia/nemotron-nano-12b-v2-vl:free">NVIDIA Nemotron VL 12B (free)</option>
-          <option value="baidu/qianfan-ocr-fast:free">Baidu OCR Fast · Best for HTR (free)</option>
-          <option value="google/gemma-3-27b-it:free">Gemma 3 27B · Vision (free)</option>
-          <option value="google/gemma-3-12b-it:free">Gemma 3 12B · Vision (free)</option>
-          <option value="openrouter/free">OpenRouter Auto · Best available (free)</option>
-        </select>
+        <div id="folioCounter" style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#e8dfc8;padding:9px 0;">
+          <span id="foliosUsed">0</span> / 10 free folios used
+        </div>
+        <div id="folioBarWrap" style="flex:1;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;margin:0 16px;align-self:center;">
+          <div id="folioBar" style="height:6px;background:var(--sepia-light);border-radius:3px;width:0%;transition:width 0.4s;"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -832,6 +824,19 @@
           <span id="btnLabel">Transcribe Document</span>
         </button>
 
+        <!-- PAYWALL -->
+        <div id="paywallBlock" style="display:none;margin-top:16px;background:linear-gradient(135deg,var(--deep-blue),var(--deep-blue-light));border:1px solid rgba(196,153,42,0.4);border-radius:4px;padding:20px 22px;text-align:center;">
+          <div style="font-size:1.6rem;margin-bottom:8px;">🔓</div>
+          <div style="font-family:'Libre Baskerville',serif;font-size:1rem;font-weight:700;color:#f0e8d4;margin-bottom:6px;">Free folios used</div>
+          <div style="font-size:0.88rem;color:#a89878;font-style:italic;margin-bottom:16px;">Continue transcribing from just 30p per folio — pay only for what you use.</div>
+          <a href="mailto:hello@foliotranscribe.com?subject=FolioTranscribe%20Access&body=I%20would%20like%20to%20purchase%20access%20to%20FolioTranscribe." style="display:inline-block;background:var(--sepia);color:#f0e8d4;padding:11px 28px;border-radius:3px;font-family:'Libre Baskerville',serif;font-size:0.95rem;font-weight:700;text-decoration:none;transition:background 0.2s;" onmouseover="this.style.background='#c4992a'" onmouseout="this.style.background='var(--sepia)'">
+            Get Full Access →
+          </a>
+          <div style="margin-top:12px;font-size:0.78rem;color:#7a6a54;font-family:'JetBrains Mono',monospace;">
+            or <span style="color:var(--sepia-light);cursor:pointer;text-decoration:underline;" onclick="resetForDemo()">reset demo</span> to try again
+          </div>
+        </div>
+
         <div class="status-bar">
           <div class="status-dot" id="statusDot"></div>
           <div class="status-text" id="statusText">Ready — upload a document to begin</div>
@@ -856,7 +861,7 @@
           <button class="btn-action btn-copy" onclick="copyText()">
             📋 Copy Text
           </button>
-          <button class="btn-action btn-word" onclick="exportWord()">
+          <button class="btn-action btn-word" id="exportWordBtn" onclick="handleExportWord()">
             ⬇ Export to Word
           </button>
           <button class="btn-action btn-clear" onclick="clearAll()">
@@ -878,7 +883,7 @@
         </div>
 
         <div class="output-actions">
-          <button class="btn-action btn-word" onclick="exportWord()">
+          <button class="btn-action btn-word" id="exportWordBtn2" onclick="handleExportWord()">
             ⬇ Download Word Document
           </button>
         </div>
@@ -905,8 +910,31 @@
 
 </main>
 
+<!-- PAYWALL MODAL -->
+<div id="paywallModal" style="display:none;position:fixed;inset:0;background:rgba(26,20,16,0.7);z-index:9000;align-items:center;justify-content:center;">
+  <div style="background:#fff9f0;border:1px solid var(--border);border-radius:6px;max-width:440px;width:90%;padding:36px 32px;text-align:center;box-shadow:0 8px 40px rgba(26,20,16,0.3);position:relative;">
+    <button onclick="closePaywallModal()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-muted);">✕</button>
+    <div style="font-size:2rem;margin-bottom:12px;">📄</div>
+    <div style="font-family:'Libre Baskerville',serif;font-size:1.15rem;font-weight:700;color:var(--deep-blue);margin-bottom:8px;">Word Export — Paid Feature</div>
+    <p style="font-size:0.95rem;color:var(--text-muted);line-height:1.6;margin-bottom:20px;">Export your transcriptions as a formatted Word document with archival citation headers, page numbers, and footnotes. Available from <strong>30p per folio</strong>.</p>
+    <div style="background:var(--parchment-dark);border-radius:4px;padding:16px;margin-bottom:20px;text-align:left;">
+      <div style="font-size:0.85rem;color:var(--ink);line-height:1.8;">
+        ✓ &nbsp;Unlimited folios<br>
+        ✓ &nbsp;Word export with citation headers<br>
+        ✓ &nbsp;Excel structured data export<br>
+        ✓ &nbsp;Analytical notes<br>
+        ✓ &nbsp;Batch processing
+      </div>
+    </div>
+    <a href="mailto:hello@foliotranscribe.com?subject=FolioTranscribe%20Paid%20Access" style="display:block;background:var(--deep-blue);color:#f0e8d4;padding:13px 24px;border-radius:3px;font-family:'Libre Baskerville',serif;font-size:1rem;font-weight:700;text-decoration:none;margin-bottom:10px;">
+      Get Full Access →
+    </a>
+    <div style="font-size:0.78rem;color:var(--text-muted);font-style:italic;">30p per folio · no subscription · pay only for what you use</div>
+  </div>
+</div>
+
 <footer>
-  FolioTranscribe · <a href="https://foliotranscribe.com">foliotranscribe.com</a> · Built for historical researchers and archivists ·
+  FolioTranscribe · <a href="https://www.foliotranscribe.com">foliotranscribe.com</a> · Built for historical researchers and archivists ·
   <a href="https://openrouter.ai" target="_blank">Powered by Qwen2.5-VL via OpenRouter</a>
 </footer>
 
@@ -916,39 +944,35 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"></script>
 
 <script>
+// ── CONFIG ──
+// Replace with your deployed Cloudflare Worker URL after deployment
+const WORKER_URL = 'https://aged-surf-2e8e.andrewprimmer.workers.dev/transcribe';
+
 // ── STATE ──
 let currentFile = null;
 let currentBase64 = null;
 let currentMime = null;
 let currentTranscript = '';
 
-// ── API KEY ──
-function saveKey() {
-  const val = document.getElementById('apiKeyInput').value.trim();
-  if (!val) { showToast('Please enter a key first'); return; }
-  localStorage.setItem('ft_openrouter_key', val);
-  updateKeyStatus();
-  showToast('API key saved');
-}
+// Visitor token — issued by Worker on first request, stored in localStorage
+function getToken() { return localStorage.getItem('ft_visitor_token') || ''; }
+function saveToken(t) { localStorage.setItem('ft_visitor_token', t); }
+function getAdminToken() { return localStorage.getItem('ft_admin_token') || ''; }
+function setAdminToken(t) { localStorage.setItem('ft_admin_token', t); showToast('Admin mode enabled'); updateAdminUI(); }
 
-function getKey() {
-  return localStorage.getItem('ft_openrouter_key') || '';
-}
-
-function updateKeyStatus() {
-  const key = getKey();
-  const el = document.getElementById('keyStatus');
-  const input = document.getElementById('apiKeyInput');
-  if (key) {
-    el.textContent = '✓ Set';
-    el.className = 'key-status set';
-    input.placeholder = key.slice(0, 8) + '••••••••••••';
-  } else {
-    el.textContent = 'Not set';
-    el.className = 'key-status unset';
+function updateAdminUI() {
+  const isAdmin = !!getAdminToken();
+  const banner = document.getElementById('freeBanner');
+  if (banner) {
+    if (isAdmin) {
+      banner.innerHTML = '<div class="api-banner-icon">⚙️</div><div class="api-banner-text"><strong style="color:var(--sepia-light);">Admin / Beta Mode — Unlimited folios</strong><p>Usage limits bypassed. Testing mode active.</p></div>';
+    }
   }
-  checkReady();
 }
+function getUsed() { return parseInt(localStorage.getItem('ft_used') || '0', 10); }
+function saveUsed(n) { localStorage.setItem('ft_used', n); }
+
+const FREE_LIMIT = 10;
 
 // ── FILE HANDLING ──
 function handleFile(e) {
@@ -964,18 +988,15 @@ function processFile(file) {
     const dataUrl = e.target.result;
     currentBase64 = dataUrl.split(',')[1];
     currentMime = file.type || 'image/jpeg';
-
     const preview = document.getElementById('previewImg');
     preview.src = dataUrl;
     preview.style.display = 'block';
-
     setStatus('ready', `Loaded: ${file.name}`);
     checkReady();
   };
   reader.readAsDataURL(file);
 }
 
-// Drag and drop
 const zone = document.getElementById('uploadZone');
 zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
 zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
@@ -987,8 +1008,52 @@ zone.addEventListener('drop', e => {
 });
 
 function checkReady() {
-  const ready = currentBase64 && getKey();
-  document.getElementById('transcribeBtn').disabled = !ready;
+  const used = getUsed();
+  const hasFile = !!currentBase64;
+  const btn = document.getElementById('transcribeBtn');
+  const paywall = document.getElementById('paywallBlock');
+
+  const isAdmin = !!getAdminToken();
+  if (!isAdmin && used >= FREE_LIMIT) {
+    btn.style.display = 'none';
+    paywall.style.display = 'block';
+  } else {
+    btn.style.display = '';
+    paywall.style.display = 'none';
+    btn.disabled = !hasFile;
+  }
+  updateFolioCounter();
+  updateExportButtons();
+}
+
+function updateExportButtons() {
+  const paid = isPaid();
+  const btns = ['exportWordBtn', 'exportWordBtn2'];
+  btns.forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    if (paid) {
+      btn.innerHTML = '⬇ Export to Word';
+      btn.style.opacity = '1';
+      btn.title = '';
+    } else {
+      btn.innerHTML = '🔒 Export to Word — Paid';
+      btn.style.opacity = '0.75';
+      btn.title = 'Word export is available on the paid tier';
+    }
+  });
+}
+
+// ── FOLIO COUNTER UI ──
+function updateFolioCounter() {
+  const used = getUsed();
+  const pct = Math.min(100, (used / FREE_LIMIT) * 100);
+  const usedEl = document.getElementById('foliosUsed');
+  const barEl = document.getElementById('folioBar');
+  const remainEl = document.getElementById('foliosRemaining');
+  if (usedEl) usedEl.textContent = Math.min(used, FREE_LIMIT);
+  if (barEl) barEl.style.width = pct + '%';
+  if (remainEl) remainEl.textContent = Math.max(0, FREE_LIMIT - used);
 }
 
 // ── STATUS ──
@@ -1008,55 +1073,37 @@ function toggleCitation() {
 }
 
 function getCitationData() {
+  const g = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
   return {
-    archive:    document.getElementById('f_archive').value.trim(),
-    collection: document.getElementById('f_collection').value.trim(),
-    series:     document.getElementById('f_series').value.trim(),
-    box:        document.getElementById('f_box').value.trim(),
-    volume:     document.getElementById('f_volume').value.trim(),
-    folio:      document.getElementById('f_folio').value.trim(),
-    docname:    document.getElementById('f_docname').value.trim(),
-    date:       document.getElementById('f_date').value.trim(),
-    refcode:    document.getElementById('f_refcode').value.trim(),
-    notes:      document.getElementById('f_notes').value.trim(),
+    archive: g('f_archive'), collection: g('f_collection'),
+    series: g('f_series'), box: g('f_box'),
+    volume: g('f_volume'), folio: g('f_folio'),
+    docname: g('f_docname'), date: g('f_date'),
+    refcode: g('f_refcode'), notes: g('f_notes'),
   };
 }
 
 function buildCitationString(c) {
-  const parts = [];
-  if (c.archive)    parts.push(c.archive);
-  if (c.collection) parts.push(c.collection);
-  if (c.series)     parts.push(c.series);
-  if (c.box)        parts.push(c.box);
-  if (c.volume)     parts.push(c.volume);
-  if (c.folio)      parts.push(c.folio);
-  if (c.refcode)    parts.push(c.refcode);
-  let str = parts.join(', ');
-  if (c.docname) str = (str ? str + '. ' : '') + c.docname;
-  if (c.date)    str += (str ? ' [' + c.date + ']' : c.date);
-  if (c.notes)   str += '. ' + c.notes;
-  return str || null;
+  const parts = [c.archive, c.collection, c.series, c.box, c.volume, c.folio, c.refcode].filter(Boolean);
+  let s = parts.join(', ');
+  if (c.docname) s = (s ? s + '. ' : '') + c.docname;
+  if (c.date) s += ' [' + c.date + ']';
+  if (c.notes) s += '. ' + c.notes;
+  return s || null;
 }
 
 function updateCitationPreview() {
   const c = getCitationData();
-  const str = buildCitationString(c);
+  const s = buildCitationString(c);
   const el = document.getElementById('citationPreview');
-  el.innerHTML = str
-    ? str
-    : '<em>Citation preview will appear here as you fill in the fields above.</em>';
+  if (el) el.innerHTML = s ? s : '<em>Citation preview will appear here as you fill in the fields above.</em>';
   updateWordPreview();
 }
 
 // ── TRANSCRIPTION ──
 async function transcribe() {
-  const key = getKey();
   if (!currentBase64) return;
-  if (!key) {
-    showToast('Please enter and save your OpenRouter API key first');
-    setStatus('error', 'No API key — enter your sk-or-... key above and click Save Key');
-    return;
-  }
+  if (getUsed() >= FREE_LIMIT) { checkReady(); return; }
 
   const btn = document.getElementById('transcribeBtn');
   const spinner = document.getElementById('spinner');
@@ -1065,68 +1112,62 @@ async function transcribe() {
   btn.disabled = true;
   spinner.style.display = 'block';
   label.textContent = 'Processing…';
-  setStatus('processing', 'Sending to Qwen2.5-VL — please wait…');
+  setStatus('processing', 'Transcribing — please wait…');
 
   try {
-    const response = await fetch(
-      'https://openrouter.ai/api/v1/chat/completions',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${key}`,
-          'HTTP-Referer': 'https://foliotranscribe.com',
-          'X-Title': 'FolioTranscribe'
-        },
-        body: JSON.stringify({
-          model: document.getElementById('modelSelect').value,
-          messages: [{
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: `You are an expert palaeographer and historical document transcriber. Transcribe ALL handwritten or printed text in this historical document exactly as it appears. Preserve:\n- Original spelling, capitalisation, and punctuation\n- Line breaks where meaningful\n- Abbreviations as written (do not expand)\n- Struck-through text in [strikethrough: ...] brackets\n- Illegible words as [illegible]\n- Uncertain readings as [?word]\n- Marginal annotations prefaced with {margin:}\nOutput only the transcribed text with no commentary or preamble.`
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${currentMime};base64,${currentBase64}`
-                }
-              }
-            ]
-          }]
-        })
-      }
-    );
+    const response = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Visitor-Token': getToken(),
+        ...(getAdminToken() ? { 'X-Admin-Token': getAdminToken() } : {})
+      },
+      body: JSON.stringify({
+        imageBase64: currentBase64,
+        mimeType: currentMime,
+        citationData: getCitationData()
+      })
+    });
 
     const data = await response.json();
 
-    if (data.error) {
-        const msg = data.error.message || JSON.stringify(data.error);
-        if (msg.includes('No endpoints found')) {
-          throw new Error('Model temporarily unavailable — try a different model from the dropdown above.');
-        }
-        if (msg.includes('auth') || msg.includes('Auth') || msg.includes('401') || msg.includes('key')) {
-          throw new Error('Authentication failed — make sure your OpenRouter key starts with sk-or- and was saved correctly.');
-        }
-        throw new Error(msg);
-      }
+    // Handle free limit reached (server-enforced)
+    if (response.status === 402 || data.error === 'free_limit_reached') {
+      saveUsed(FREE_LIMIT);
+      checkReady();
+      showToast('Free folios used — purchase access to continue');
+      return;
+    }
 
-    const text = data.choices?.[0]?.message?.content || '';
+    if (data.error) throw new Error(data.error.message || data.error);
+
+    // Save token issued by server
+    if (data.token) saveToken(data.token);
+
+    // Update usage from server response (authoritative)
+    if (data.used !== undefined) saveUsed(data.used);
+
+    const text = data.transcription || '';
     currentTranscript = text;
     document.getElementById('transcriptArea').value = text;
     updateWordPreview();
-    setStatus('done', `Transcription complete — ${text.split(/\s+/).length} words`);
-    showToast('Transcription complete');
+
+    const words = data.wordCount || text.split(/\s+/).filter(Boolean).length;
+    const remaining = data.remaining !== undefined ? data.remaining : Math.max(0, FREE_LIMIT - getUsed());
+
+    setStatus('done', `Complete — ${remaining > 0 ? remaining + ' free folio' + (remaining !== 1 ? 's' : '') + ' remaining' : 'free folios used — 30p per folio to continue'}`);
+    showToast(`Transcription complete — ${words} words`);
+
+    checkReady();
 
   } catch (err) {
     setStatus('error', 'Error: ' + err.message);
     showToast('Error: ' + err.message);
-  } finally {
     btn.disabled = false;
+  } finally {
     spinner.style.display = 'none';
     label.textContent = 'Transcribe Document';
-    checkReady();
+    if (getUsed() < FREE_LIMIT && currentBase64) btn.disabled = false;
   }
 }
 
@@ -1146,15 +1187,12 @@ function updateWordPreview() {
   const c = getCitationData();
   const citStr = buildCitationString(c);
   const text = document.getElementById('transcriptArea').value || currentTranscript;
-
-  document.getElementById('previewTitle').textContent =
-    c.docname || 'Document Transcription';
-
-  document.getElementById('previewRef').innerHTML =
-    citStr ? citStr : '<em>No archival reference fields completed.</em>';
-
-  document.getElementById('previewContent').textContent =
-    text || 'No transcription yet.';
+  const titleEl = document.getElementById('previewTitle');
+  const refEl = document.getElementById('previewRef');
+  const contentEl = document.getElementById('previewContent');
+  if (titleEl) titleEl.textContent = c.docname || 'Document Transcription';
+  if (refEl) refEl.innerHTML = citStr ? citStr : '<em>No archival reference fields completed.</em>';
+  if (contentEl) contentEl.textContent = text || 'No transcription yet.';
 }
 
 // ── COPY ──
@@ -1164,130 +1202,66 @@ function copyText() {
   navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard'));
 }
 
+// ── PAID TIER CHECK ──
+function isPaid() {
+  // Check for paid token stored after purchase
+  return localStorage.getItem('ft_paid') === 'true';
+}
+
+function handleExportWord() {
+  if (!isPaid()) {
+    showPaywallModal();
+    return;
+  }
+  exportWord();
+}
+
+function showPaywallModal() {
+  const modal = document.getElementById('paywallModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closePaywallModal() {
+  const modal = document.getElementById('paywallModal');
+  if (modal) modal.style.display = 'none';
+}
+
 // ── EXPORT TO WORD ──
 async function exportWord() {
   const text = document.getElementById('transcriptArea').value || currentTranscript;
   if (!text) { showToast('No transcription to export'); return; }
-
   const c = getCitationData();
   const citStr = buildCitationString(c);
-  const {
-    Document, Packer, Paragraph, TextRun, Header, Footer,
-    AlignmentType, HeadingLevel, BorderStyle, PageNumber,
-    Tab, TabStopType, TabStopPosition
-  } = docx;
-
-  // Build header lines
-  const headerLines = [];
-  if (c.archive)    headerLines.push(`Archive: ${c.archive}`);
-  if (c.collection) headerLines.push(`Collection: ${c.collection}`);
-  if (c.series)     headerLines.push(`Series: ${c.series}`);
-  if (c.box)        headerLines.push(`Box/File: ${c.box}`);
-  if (c.volume)     headerLines.push(`Volume: ${c.volume}`);
-  if (c.folio)      headerLines.push(`Folio: ${c.folio}`);
-  if (c.refcode)    headerLines.push(`Reference: ${c.refcode}`);
-  if (c.date)       headerLines.push(`Date: ${c.date}`);
-  if (c.notes)      headerLines.push(`Notes: ${c.notes}`);
-
+  const { Document, Packer, Paragraph, TextRun, Header, Footer,
+          AlignmentType, BorderStyle, PageNumberElement } = docx;
+  const transcribedOn = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   const docTitle = c.docname || 'Document Transcription';
-  const transcribedOn = new Date().toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'long', year: 'numeric'
-  });
-
-  // Split transcript into paragraphs
-  const bodyParas = text.split(/\n\n+/).map(block =>
-    new Paragraph({
-      children: [new TextRun({ text: block.replace(/\n/g, ' '), font: 'Garamond', size: 24 })],
-      spacing: { after: 200, line: 360 },
-    })
-  );
-
-  // Build header paragraphs
+  const headerLines = [];
+  if (c.archive) headerLines.push(`Archive: ${c.archive}`);
+  if (c.collection) headerLines.push(`Collection: ${c.collection}`);
+  if (c.series) headerLines.push(`Series: ${c.series}`);
+  if (c.box) headerLines.push(`Box/File: ${c.box}`);
+  if (c.volume) headerLines.push(`Volume: ${c.volume}`);
+  if (c.folio) headerLines.push(`Folio: ${c.folio}`);
+  if (c.refcode) headerLines.push(`Reference: ${c.refcode}`);
+  if (c.date) headerLines.push(`Date: ${c.date}`);
+  if (c.notes) headerLines.push(`Notes: ${c.notes}`);
   const headerParas = [
-    new Paragraph({
-      children: [new TextRun({
-        text: 'FolioTranscribe · Archival Transcription',
-        font: 'Arial', size: 16, color: '666666', italics: true
-      })],
-      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '1e3a5f', space: 1 } },
-      spacing: { after: 80 }
-    }),
+    new Paragraph({ children: [new TextRun({ text: 'FolioTranscribe · Archival Transcription', font: 'Arial', size: 16, color: '666666', italics: true })], border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '1e3a5f', space: 1 } }, spacing: { after: 80 } }),
+    ...headerLines.map(line => new Paragraph({ children: [new TextRun({ text: line, font: 'Arial', size: 16, color: '444444' })], spacing: { after: 20 } }))
   ];
+  const bodyParas = text.split(/
 
-  if (headerLines.length > 0) {
-    headerLines.forEach(line => {
-      headerParas.push(new Paragraph({
-        children: [new TextRun({ text: line, font: 'Arial', size: 16, color: '444444' })],
-        spacing: { after: 20 }
-      }));
-    });
-  }
-
-  const doc = new Document({
-    sections: [{
-      properties: {
-        page: {
-          size: { width: 11906, height: 16838 }, // A4
-          margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
-        }
-      },
-      headers: {
-        default: new Header({ children: headerParas })
-      },
-      footers: {
-        default: new Footer({
-          children: [
-            new Paragraph({
-              children: [
-                new TextRun({ text: docTitle, font: 'Arial', size: 16, color: '666666', italics: true }),
-                new TextRun({ text: '   ·   Transcribed: ' + transcribedOn, font: 'Arial', size: 16, color: '888888' }),
-                new TextRun({ text: '   ·   Page ', font: 'Arial', size: 16, color: '888888' }),
-                new PageNumber(),
-              ],
-              alignment: AlignmentType.CENTER
-            })
-          ]
-        })
-      },
-      children: [
-        // Title block
-        new Paragraph({
-          children: [new TextRun({
-            text: docTitle,
-            font: 'Garamond', size: 32, bold: true, color: '1e3a5f'
-          })],
-          spacing: { after: 160 }
-        }),
-        ...(citStr ? [new Paragraph({
-          children: [new TextRun({
-            text: citStr,
-            font: 'Arial', size: 18, color: '555555', italics: true
-          })],
-          border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'c4992a', space: 1 } },
-          spacing: { after: 320 }
-        })] : []),
-        // Body
-        ...bodyParas,
-        // Trailing note
-        new Paragraph({
-          children: [new TextRun({
-            text: `Transcribed using FolioTranscribe (foliotranscribe.com) on ${transcribedOn}`,
-            font: 'Arial', size: 16, color: '999999', italics: true
-          })],
-          spacing: { before: 480 },
-          border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'dddddd', space: 1 } }
-        })
-      ]
-    }]
-  });
-
++/).map(block =>
+    new Paragraph({ children: [new TextRun({ text: block.replace(/
+/g, ' '), font: 'Garamond', size: 24 })], spacing: { after: 200, line: 360 } })
+  );
+  const doc = new Document({ sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } }, headers: { default: new Header({ children: headerParas }) }, footers: { default: new Footer({ children: [new Paragraph({ children: [new TextRun({ text: `${docTitle}  ·  Transcribed: ${transcribedOn}  ·  Page `, font: 'Arial', size: 16, color: '888888', italics: true }), new PageNumberElement()], alignment: AlignmentType.CENTER })] }) }, children: [new Paragraph({ children: [new TextRun({ text: docTitle, font: 'Garamond', size: 32, bold: true, color: '1e3a5f' })], spacing: { after: 160 } }), ...(citStr ? [new Paragraph({ children: [new TextRun({ text: citStr, font: 'Arial', size: 18, color: '555555', italics: true })], border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'c4992a', space: 1 } }, spacing: { after: 320 } })] : []), ...bodyParas, new Paragraph({ children: [new TextRun({ text: `Transcribed using FolioTranscribe (foliotranscribe.com) on ${transcribedOn}`, font: 'Arial', size: 16, color: '999999', italics: true })], spacing: { before: 480 }, border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'dddddd', space: 1 } } })] }] });
   const blob = await Packer.toBlob(doc);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const filename = (c.refcode || c.docname || 'transcription')
-    .replace(/[^a-z0-9\-_]/gi, '_').slice(0, 50) + '.docx';
   a.href = url;
-  a.download = filename;
+  a.download = (c.refcode || c.docname || 'transcription').replace(/[^a-z0-9\-_]/gi, '_').slice(0, 50) + '.docx';
   a.click();
   URL.revokeObjectURL(url);
   showToast('Word document downloaded');
@@ -1297,7 +1271,8 @@ async function exportWord() {
 function clearAll() {
   document.getElementById('transcriptArea').value = '';
   currentTranscript = '';
-  document.getElementById('previewContent').textContent = 'No transcription yet.';
+  const el = document.getElementById('previewContent');
+  if (el) el.textContent = 'No transcription yet.';
   setStatus('', 'Ready — upload a document to begin');
 }
 
@@ -1310,9 +1285,24 @@ function showToast(msg) {
 }
 
 // ── INIT ──
-updateKeyStatus();
-// Initialise tab display
+updateFolioCounter();
+updateExportButtons();
+updateAdminUI();
 document.getElementById('tab-word').style.display = 'none';
+checkReady();
+
+// Admin mode: visit site with #admin=YOUR_TOKEN in URL
+// e.g. https://foliotranscribe.com#admin=mySecretToken123
+(function() {
+  const hash = window.location.hash;
+  if (hash.startsWith('#admin=')) {
+    const token = hash.slice(7);
+    if (token.length > 8) {
+      setAdminToken(token);
+      window.location.hash = '';
+    }
+  }
+})();
 </script>
 </body>
 </html>
