@@ -941,7 +941,7 @@
 <div class="toast" id="toast"></div>
 
 <!-- docx library for Word export -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"></script>
+<script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
 
 <script>
 // ── CONFIG ──
@@ -1152,7 +1152,7 @@ async function transcribe() {
     document.getElementById('transcriptArea').value = text;
     updateWordPreview();
 
-    const words = data.wordCount || text.split(/\s+/).filter(Boolean).length;
+    const words = data.wordCount || text.split(' ').filter(function(w){return w.length>0;}).length;
     const remaining = data.remaining !== undefined ? data.remaining : Math.max(0, FREE_LIMIT - getUsed());
 
     setStatus('done', `Complete — ${remaining > 0 ? remaining + ' free folio' + (remaining !== 1 ? 's' : '') + ' remaining' : 'free folios used — 30p per folio to continue'}`);
@@ -1250,11 +1250,8 @@ async function exportWord() {
     new Paragraph({ children: [new TextRun({ text: 'FolioTranscribe · Archival Transcription', font: 'Arial', size: 16, color: '666666', italics: true })], border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '1e3a5f', space: 1 } }, spacing: { after: 80 } }),
     ...headerLines.map(line => new Paragraph({ children: [new TextRun({ text: line, font: 'Arial', size: 16, color: '444444' })], spacing: { after: 20 } }))
   ];
-  const bodyParas = text.split(/
-
-+/).map(block =>
-    new Paragraph({ children: [new TextRun({ text: block.replace(/
-/g, ' '), font: 'Garamond', size: 24 })], spacing: { after: 200, line: 360 } })
+  const bodyParas = text.split(/\n\n+/).map(block =>
+    new Paragraph({ children: [new TextRun({ text: block.replace(/\n/g, ' '), font: 'Garamond', size: 24 })], spacing: { after: 200, line: 360 } })
   );
   const doc = new Document({ sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } }, headers: { default: new Header({ children: headerParas }) }, footers: { default: new Footer({ children: [new Paragraph({ children: [new TextRun({ text: `${docTitle}  ·  Transcribed: ${transcribedOn}  ·  Page `, font: 'Arial', size: 16, color: '888888', italics: true }), new PageNumberElement()], alignment: AlignmentType.CENTER })] }) }, children: [new Paragraph({ children: [new TextRun({ text: docTitle, font: 'Garamond', size: 32, bold: true, color: '1e3a5f' })], spacing: { after: 160 } }), ...(citStr ? [new Paragraph({ children: [new TextRun({ text: citStr, font: 'Arial', size: 18, color: '555555', italics: true })], border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'c4992a', space: 1 } }, spacing: { after: 320 } })] : []), ...bodyParas, new Paragraph({ children: [new TextRun({ text: `Transcribed using FolioTranscribe (foliotranscribe.com) on ${transcribedOn}`, font: 'Arial', size: 16, color: '999999', italics: true })], spacing: { before: 480 }, border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'dddddd', space: 1 } } })] }] });
   const blob = await Packer.toBlob(doc);
