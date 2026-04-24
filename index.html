@@ -744,6 +744,31 @@
       </div>
       <div class="panel-body">
 
+        <!-- DOCUMENT DESCRIPTION — required for transcription -->
+        <div style="margin-bottom:18px;padding:16px;background:var(--parchment-mid);border:1px solid var(--border);border-radius:3px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <div style="font-family:'Libre Baskerville',serif;font-size:0.9rem;font-weight:700;color:var(--ink);">Document Description</div>
+            <div style="background:var(--rust);color:#f0e8d4;font-family:'JetBrains Mono',monospace;font-size:0.62rem;padding:2px 7px;border-radius:2px;">Required</div>
+          </div>
+          <p style="font-size:0.8rem;color:var(--text-muted);font-style:italic;margin-bottom:10px;">Describing your document improves transcription accuracy. Both fields are required before transcribing.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <label style="font-size:0.7rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.05em;">Document Type *</label>
+              <input type="text" id="f_doctype"
+                placeholder="e.g. 19th century Spanish mining account"
+                oninput="checkReady()"
+                style="border:1px solid var(--border);background:#fff9f0;color:var(--ink);font-family:'EB Garamond',serif;font-size:0.9rem;padding:7px 9px;border-radius:2px;outline:none;width:100%;transition:border-color 0.2s;">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <label style="font-size:0.7rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.05em;">Language *</label>
+              <input type="text" id="f_language"
+                placeholder="e.g. Spanish, Latin, English"
+                oninput="checkReady()"
+                style="border:1px solid var(--border);background:#fff9f0;color:var(--ink);font-family:'EB Garamond',serif;font-size:0.9rem;padding:7px 9px;border-radius:2px;outline:none;width:100%;transition:border-color 0.2s;">
+            </div>
+          </div>
+        </div>
+
         <div class="upload-zone" id="uploadZone">
           <input type="file" id="fileInput" accept="image/*,.pdf" onchange="handleFile(event)">
           <span class="upload-icon">📜</span>
@@ -808,7 +833,7 @@
                 <input type="text" id="f_refcode" placeholder="e.g. MT 10/1563" oninput="updateCitationPreview()">
               </div>
             </div>
-            <div class="field-group full">
+<div class="field-group full">
               <label>Additional Notes</label>
               <input type="text" id="f_notes" placeholder="e.g. Transcribed from microfilm copy; original held at..." oninput="updateCitationPreview()">
             </div>
@@ -1013,6 +1038,17 @@ function checkReady() {
   const btn = document.getElementById('transcribeBtn');
   const paywall = document.getElementById('paywallBlock');
 
+  // Both description fields must be filled
+  const doctype = document.getElementById('f_doctype');
+  const language = document.getElementById('f_language');
+  const hasDoctype = doctype && doctype.value.trim().length > 2;
+  const hasLanguage = language && language.value.trim().length > 1;
+  const hasDescription = hasDoctype && hasLanguage;
+
+  // Visual feedback on empty required fields
+  if (doctype) doctype.style.borderColor = hasDoctype ? 'var(--border)' : (doctype.value.length > 0 ? 'var(--rust)' : 'var(--border)');
+  if (language) language.style.borderColor = hasLanguage ? 'var(--border)' : (language.value.length > 0 ? 'var(--rust)' : 'var(--border)');
+
   const isAdmin = !!getAdminToken();
   if (!isAdmin && used >= FREE_LIMIT) {
     btn.style.display = 'none';
@@ -1020,7 +1056,12 @@ function checkReady() {
   } else {
     btn.style.display = '';
     paywall.style.display = 'none';
-    btn.disabled = !hasFile;
+    btn.disabled = !(hasFile && hasDescription);
+
+    // Show helpful hint if file uploaded but description missing
+    if (hasFile && !hasDescription) {
+      setStatus('', 'Please fill in Document Type and Language above to continue');
+    }
   }
   updateFolioCounter();
   updateExportButtons();
@@ -1075,13 +1116,21 @@ function toggleCitation() {
 function getCitationData() {
   const g = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
   return {
-    archive: g('f_archive'), collection: g('f_collection'),
-    series: g('f_series'), box: g('f_box'),
-    volume: g('f_volume'), folio: g('f_folio'),
-    docname: g('f_docname'), date: g('f_date'),
-    refcode: g('f_refcode'), notes: g('f_notes'),
+    archive:    g('f_archive'),
+    collection: g('f_collection'),
+    series:     g('f_series'),
+    box:        g('f_box'),
+    volume:     g('f_volume'),
+    folio:      g('f_folio'),
+    docname:    g('f_docname'),
+    date:       g('f_date'),
+    refcode:    g('f_refcode'),
+    notes:      g('f_notes'),
+    doctype:    g('f_doctype'),
+    language:   g('f_language'),
   };
 }
+
 
 function buildCitationString(c) {
   const parts = [c.archive, c.collection, c.series, c.box, c.volume, c.folio, c.refcode].filter(Boolean);
